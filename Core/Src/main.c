@@ -84,16 +84,25 @@ uint32_t DACData;
 //}
 
 //=================================** sine wave **=========================================================//
-uint16_t sineTable[TABLE_SIZE];
+//uint16_t sineTable[TABLE_SIZE];
+//uint16_t indexWave=0;
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+//{
+//	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,sineTable[indexWave]);
+//	indexWave++;
+//	if(indexWave >=TABLE_SIZE)
+//		indexWave=0;
+//}
+//=================================** trapzoid wave **=========================================================//
+uint16_t trapzoidTable[TABLE_SIZE];
 uint16_t indexWave=0;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,sineTable[indexWave]);
+	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,trapzoidTable[indexWave]);
 	indexWave++;
 	if(indexWave >=TABLE_SIZE)
 		indexWave=0;
 }
-
 
 /* USER CODE END 0 */
 
@@ -129,9 +138,32 @@ int main(void)
   MX_DAC1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  for(int i =0; i<TABLE_SIZE;i++){
-	  sineTable[i]=(sin(2*3.14159*i/TABLE_SIZE)+1)*2027;
-  }
+  //=================================**initial sine wave **=========================================================//
+//  for(int i =0; i<TABLE_SIZE;i++){
+//	  sineTable[i]=(sin(2*3.14159*i/TABLE_SIZE)+1)*2027;
+//  }
+  //=================================**initial trapzoid wave **=========================================================//
+   for(int i =0; i<TABLE_SIZE;i++){
+	   //Rising edge
+	   if(i<32){
+		   trapzoidTable[i]=i*128;
+	   }
+	   //High level
+	   else if(i<64){
+		   trapzoidTable[i]=4095;
+	   }
+	   //Fallinh edge
+	   else if(i<96){
+		   trapzoidTable[i]=4095-((i-64)*128);
+	   }
+	   //Low level
+	   else {
+		   trapzoidTable[i]=0;
+	   }
+
+   }
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
