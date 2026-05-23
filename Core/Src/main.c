@@ -21,7 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "math.h"
+#define TABLE_SIZE 128
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -70,18 +71,29 @@ uint32_t DACData;
 //	if(j>1.0)j=0.0;
 //}
 //=================================** square wave **=========================================================//
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+//{
+//    if(j < 0.5)
+//        DACData = 4095;
+//    else
+//        DACData = 0;
+//    HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DACData);
+//    j = j + 0.1;
+//    if(j > 1.0)
+//        j = 0.0;
+//}
+
+//=================================** sine wave **=========================================================//
+uint16_t sineTable[TABLE_SIZE];
+uint16_t indexWave=0;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if(j < 0.5)
-        DACData = 4095;
-    else
-        DACData = 0;
-
-    HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DACData);
-    j = j + 0.1;
-    if(j > 1.0)
-        j = 0.0;
+	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,sineTable[indexWave]);
+	indexWave++;
+	if(indexWave >=TABLE_SIZE)
+		indexWave=0;
 }
+
 
 /* USER CODE END 0 */
 
@@ -117,7 +129,9 @@ int main(void)
   MX_DAC1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-
+  for(int i =0; i<TABLE_SIZE;i++){
+	  sineTable[i]=(sin(2*3.14159*i/TABLE_SIZE)+1)*2027;
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
