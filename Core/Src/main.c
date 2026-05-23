@@ -62,13 +62,27 @@ static void MX_TIM2_Init(void);
 float DAC_RANGE =4095;   //Numerical mapping 1.0(float)=(2^12)-1=3.3v
 float j=0.0;
 uint32_t DACData;
-//**Sawtooth wave**//
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-	DACData=((uint32_t)(j*DAC_RANGE)); //float to DAC conversion
-	HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, DACData);
-	j=j+0.1;
-	if(j>1.0)j=0.0;
+//================================**Sawtooth wave**=========================================================//
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+//	DACData=((uint32_t)(j*DAC_RANGE)); //float to DAC conversion
+//	HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, DACData);
+//	j=j+0.1;
+//	if(j>1.0)j=0.0;
+//}
+//=================================** square wave **=========================================================//
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if(j < 0.5)
+        DACData = 4095;
+    else
+        DACData = 0;
+
+    HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DACData);
+    j = j + 0.1;
+    if(j > 1.0)
+        j = 0.0;
 }
+
 /* USER CODE END 0 */
 
 /**
