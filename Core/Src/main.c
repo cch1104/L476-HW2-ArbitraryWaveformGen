@@ -104,6 +104,30 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		indexWave=0;
 }
 
+
+//button interrup callback function//
+int currentWave=0;
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN){
+	currentWave++;
+	if(currentWave>3){
+		currentWave=0;
+	}
+	switch(currentWave){
+	case 0:
+		//sawtooeh
+		break;
+	case 1:
+		//square
+		break;
+	case 2:
+		//sine
+		break;
+	case 3:
+		//tapezodial
+		break;
+	}
+}
+
 /* USER CODE END 0 */
 
 /**
