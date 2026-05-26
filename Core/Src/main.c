@@ -50,6 +50,7 @@ Waveform_t currentWave = Sawtooth;//initial waveform = Sawtooth
 
 /* Private variables ---------------------------------------------------------*/
 DAC_HandleTypeDef hdac1;
+DMA_HandleTypeDef hdma_dac_ch1;
 
 TIM_HandleTypeDef htim2;
 
@@ -60,6 +61,7 @@ TIM_HandleTypeDef htim2;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
@@ -116,17 +118,51 @@ static void MX_TIM2_Init(void);
 //		indexWave=0;
 //}
 
+//=================================>>  Callback  methoed <<========================================================================//
 //=================================**  changing waveform callback**=========================================================//
-uint16_t indexWave=0;
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,currentTable[indexWave]);
-	indexWave++;
-	if(indexWave >=TABLE_SIZE)
-		indexWave=0;
-}
+//uint16_t indexWave=0;
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+//{
+//	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,currentTable[indexWave]);
+//	indexWave++;
+//	if(indexWave >=TABLE_SIZE)
+//		indexWave=0;
+//}
 
 //=================================**external button interrup callback function **=========================================================//
+//void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN){
+//	if(GPIO_PIN==GPIO_PIN_13){
+//
+//		currentWave++;
+//		if(currentWave > Trapezoidal)
+//				currentWave = Sawtooth;
+//
+//		switch(currentWave)
+//		{
+//			case Sawtooth:
+//				currentTable = sawTable;
+//				break;
+//
+//			case Square:
+//				currentTable = squareTable;
+//				break;
+//
+//			case Sine:
+//				currentTable = sineTable;
+//				break;
+//
+//			case Trapezoidal:
+//				currentTable = trapezoidTable;
+//				break;
+//		}
+//
+//	}
+//
+//}
+//=================================>>  Callback method <<========================================================================//
+//=================================**********************========================================================================//
+//=================================>>     DMA   method <<========================================================================//
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN){
 	if(GPIO_PIN==GPIO_PIN_13){
 
@@ -153,9 +189,18 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN){
 				break;
 		}
 
+		HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
+
+		HAL_DAC_Start_DMA(&hdac1,DAC_CHANNEL_1,(uint32_t*)currentTable,TABLE_SIZE,DAC_ALIGN_12B_R);
+
 	}
 
 }
+
+
+//=================================>>     DMA   method <<========================================================================//
+
+
 
 /* USER CODE END 0 */
 
@@ -188,6 +233,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_DAC1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
@@ -235,8 +281,15 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  HAL_TIM_Base_Start_IT(&htim2);
-  HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
+   //=================================>>  Callback method <<========================================================================//
+//  HAL_TIM_Base_Start_IT(&htim2);
+//  HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
+
+//=================================>>     DMA   method <<========================================================================//
+  //DMA
+  HAL_TIM_Base_Start(&htim2);
+  HAL_DAC_Start_DMA(&hdac1,DAC_CHANNEL_1,(uint32_t*)currentTable,TABLE_SIZE,DAC_ALIGN_12B_R);
+
   lcd_Init();
   lcd_Puts("Waveform style: ");
   char buff[32];
@@ -348,9 +401,9 @@ static void MX_DAC1_Init(void)
   /** DAC channel OUT1 config
   */
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
-  sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T2_TRGO;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
-  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_ENABLE;
+  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
   if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
@@ -395,7 +448,7 @@ static void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
   {
@@ -404,6 +457,22 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
 
 }
 
