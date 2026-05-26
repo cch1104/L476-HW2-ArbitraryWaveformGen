@@ -21,8 +21,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "lcd.h"
 #include "math.h"
+#include <stdio.h>
 #define TABLE_SIZE 128
+volatile int updateLCD=0;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -63,6 +66,7 @@ static void MX_TIM2_Init(void);
 float DAC_RANGE =4095;   //Numerical mapping 1.0(float)=(2^12)-1=3.3v
 float j=0.0;
 uint32_t DACData;
+
 //================================**Sawtooth wave**=========================================================//
 //void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 //	DACData=((uint32_t)(j*DAC_RANGE)); //float to DAC conversion
@@ -70,6 +74,7 @@ uint32_t DACData;
 //	j=j+0.1;
 //	if(j>1.0)j=0.0;
 //}
+
 //=================================** square wave **=========================================================//
 //void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 //{
@@ -84,48 +89,32 @@ uint32_t DACData;
 //}
 
 //=================================** sine wave **=========================================================//
-//uint16_t sineTable[TABLE_SIZE];
-//uint16_t indexWave=0;
-//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-//{
-//	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,sineTable[indexWave]);
-//	indexWave++;
-//	if(indexWave >=TABLE_SIZE)
-//		indexWave=0;
-//}
-//=================================** trapzoid wave **=========================================================//
-uint16_t trapzoidTable[TABLE_SIZE];
+uint16_t sineTable[TABLE_SIZE];
 uint16_t indexWave=0;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,trapzoidTable[indexWave]);
+	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,sineTable[indexWave]);
 	indexWave++;
 	if(indexWave >=TABLE_SIZE)
 		indexWave=0;
 }
+//=================================** trapzoid wave **=========================================================//
+//uint16_t trapzoidTable[TABLE_SIZE];
+//uint16_t indexWave=0;
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+//{
+//	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,trapzoidTable[indexWave]);
+//	indexWave++;
+//	if(indexWave >=TABLE_SIZE)
+//		indexWave=0;
+//}
 
-
-//button interrup callback function//
+//=================================** button interrup callback function **=========================================================//
 int currentWave=0;
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN){
 	currentWave++;
-	if(currentWave>3){
-		currentWave=0;
-	}
-	switch(currentWave){
-	case 0:
-		//sawtooeh
-		break;
-	case 1:
-		//square
-		break;
-	case 2:
-		//sine
-		break;
-	case 3:
-		//tapezodial
-		break;
-	}
+//	HAL_GPIO_TogglePin(GPIOA,myled);
+
 }
 
 /* USER CODE END 0 */
@@ -163,29 +152,30 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   //=================================**initial sine wave **=========================================================//
-//  for(int i =0; i<TABLE_SIZE;i++){
-//	  sineTable[i]=(sin(2*3.14159*i/TABLE_SIZE)+1)*2027;
-//  }
-  //=================================**initial trapzoid wave **=========================================================//
-   for(int i =0; i<TABLE_SIZE;i++){
-	   //Rising edge
-	   if(i<32){
-		   trapzoidTable[i]=i*128;
-	   }
-	   //High level
-	   else if(i<64){
-		   trapzoidTable[i]=4095;
-	   }
-	   //Fallinh edge
-	   else if(i<96){
-		   trapzoidTable[i]=4095-((i-64)*128);
-	   }
-	   //Low level
-	   else {
-		   trapzoidTable[i]=0;
-	   }
+  for(int i =0; i<TABLE_SIZE;i++){
+	  sineTable[i]=(sin(2*3.14159*i/TABLE_SIZE)+1)*2027;
+  }
 
-   }
+  //=================================**initial trapzoid wave **=========================================================//
+//   for(int i =0; i<TABLE_SIZE;i++){
+//	   //Rising edge
+//	   if(i<32){
+//		   trapzoidTable[i]=i*128;
+//	   }
+//	   //High level
+//	   else if(i<64){
+//		   trapzoidTable[i]=4095;
+//	   }
+//	   //Fallinh edge
+//	   else if(i<96){
+//		   trapzoidTable[i]=4095-((i-64)*128);
+//	   }
+//	   //Low level
+//	   else {
+//		   trapzoidTable[i]=0;
+//	   }
+//
+//   }
 
 
   /* USER CODE END 2 */
@@ -194,8 +184,15 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   HAL_TIM_Base_Start_IT(&htim2);
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
+  lcd_Init();
+  lcd_Puts("Waveform: ");
+  char buff[32];
   while (1)
   {
+	  lcd_Goto(0,1);
+	  sprintf(buff, "%1d", currentWave);
+	  lcd_Puts(buff);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
