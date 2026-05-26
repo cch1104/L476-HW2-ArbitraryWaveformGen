@@ -25,12 +25,17 @@
 #include "math.h"
 #include <stdio.h>
 #define TABLE_SIZE 128
-volatile int updateLCD=0;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+typedef enum {Sawtooth, Square, Sine, Trapezoidal} Waveform_t;
+uint16_t sawTable[TABLE_SIZE];
+uint16_t squareTable[TABLE_SIZE];
+uint16_t sineTable[TABLE_SIZE];
+uint16_t trapezoidTable[TABLE_SIZE];
+uint16_t *currentTable =sawTable;
+Waveform_t currentWave = Sawtooth;//initial waveform = Sawtooth
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -63,11 +68,11 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-float DAC_RANGE =4095;   //Numerical mapping 1.0(float)=(2^12)-1=3.3v
-float j=0.0;
-uint32_t DACData;
 
-//================================**Sawtooth wave**=========================================================//
+//================================**Sawtooth wave callback**=========================================================//
+//float DAC_RANGE =4095;   //Numerical mapping 1.0(float)=(2^12)-1=3.3v
+//float j=0.0;
+//uint32_t DACData;
 //void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 //	DACData=((uint32_t)(j*DAC_RANGE)); //float to DAC conversion
 //	HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, DACData);
@@ -75,7 +80,9 @@ uint32_t DACData;
 //	if(j>1.0)j=0.0;
 //}
 
-//=================================** square wave **=========================================================//
+//=================================** square wave callback **=========================================================//
+//float j=0.0;
+//uint32_t DACData;
 //void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 //{
 //    if(j < 0.5)
@@ -88,17 +95,17 @@ uint32_t DACData;
 //        j = 0.0;
 //}
 
-//=================================** sine wave **=========================================================//
-uint16_t sineTable[TABLE_SIZE];
-uint16_t indexWave=0;
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,sineTable[indexWave]);
-	indexWave++;
-	if(indexWave >=TABLE_SIZE)
-		indexWave=0;
-}
-//=================================** trapzoid wave **=========================================================//
+//=================================** sine wave callback**=========================================================//
+//uint16_t indexWave=0;
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+//{
+//	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,sineTable[indexWave]);
+//	indexWave++;
+//	if(indexWave >=TABLE_SIZE)
+//		indexWave=0;
+//}
+
+//=================================** trapzoid wave callback**=========================================================//
 //uint16_t trapzoidTable[TABLE_SIZE];
 //uint16_t indexWave=0;
 //void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -109,11 +116,44 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 //		indexWave=0;
 //}
 
-//=================================** button interrup callback function **=========================================================//
-int currentWave=0;
+//=================================**  changing waveform callback**=========================================================//
+uint16_t indexWave=0;
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,currentTable[indexWave]);
+	indexWave++;
+	if(indexWave >=TABLE_SIZE)
+		indexWave=0;
+}
+
+//=================================**external button interrup callback function **=========================================================//
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN){
-	currentWave++;
-//	HAL_GPIO_TogglePin(GPIOA,myled);
+	if(GPIO_PIN==GPIO_PIN_13){
+
+		currentWave++;
+		if(currentWave > Trapezoidal)
+				currentWave = Sawtooth;
+
+		switch(currentWave)
+		{
+			case Sawtooth:
+				currentTable = sawTable;
+				break;
+
+			case Square:
+				currentTable = squareTable;
+				break;
+
+			case Sine:
+				currentTable = sineTable;
+				break;
+
+			case Trapezoidal:
+				currentTable = trapezoidTable;
+				break;
+		}
+
+	}
 
 }
 
@@ -151,31 +191,44 @@ int main(void)
   MX_DAC1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  //=================================**initial sine wave **=========================================================//
+  //================================**initial Sawtooth wave table**=========================================================//
+  for (int i=0; i<TABLE_SIZE; i++){
+  	sawTable[i]=i*32;
+  }
+
+  //================================**initial Square wave table**=========================================================//
+  for (int i=0; i<TABLE_SIZE; i++){
+  	if(i < TABLE_SIZE/2)
+  		squareTable[i]=4095;
+  	else
+  		squareTable[i]=0;
+  }
+
+  //=================================**initial sine wave table**=========================================================//
   for(int i =0; i<TABLE_SIZE;i++){
 	  sineTable[i]=(sin(2*3.14159*i/TABLE_SIZE)+1)*2027;
   }
 
-  //=================================**initial trapzoid wave **=========================================================//
-//   for(int i =0; i<TABLE_SIZE;i++){
-//	   //Rising edge
-//	   if(i<32){
-//		   trapzoidTable[i]=i*128;
-//	   }
-//	   //High level
-//	   else if(i<64){
-//		   trapzoidTable[i]=4095;
-//	   }
-//	   //Fallinh edge
-//	   else if(i<96){
-//		   trapzoidTable[i]=4095-((i-64)*128);
-//	   }
-//	   //Low level
-//	   else {
-//		   trapzoidTable[i]=0;
-//	   }
-//
-//   }
+  //=================================**initial trapzoid wave table**=========================================================//
+   for(int i =0; i<TABLE_SIZE;i++){
+	   //Rising edge
+	   if(i<32){
+		   trapezoidTable[i]=i*128;
+	   }
+	   //High level
+	   else if(i<64){
+		   trapezoidTable[i]=4095;
+	   }
+	   //Fallinh edge
+	   else if(i<96){
+		   trapezoidTable[i]=4095-((i-64)*128);
+	   }
+	   //Low level
+	   else {
+		   trapezoidTable[i]=0;
+	   }
+
+   }
 
 
   /* USER CODE END 2 */
@@ -185,12 +238,29 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim2);
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
   lcd_Init();
-  lcd_Puts("Waveform: ");
+  lcd_Puts("Waveform style: ");
   char buff[32];
   while (1)
   {
 	  lcd_Goto(0,1);
-	  sprintf(buff, "%1d", currentWave);
+	  switch(currentWave)
+	  {
+	      case Sawtooth:
+	          sprintf(buff,"Sawtooth   ");
+	          break;
+
+	      case Square:
+	          sprintf(buff,"Squarewave ");
+	          break;
+
+	      case Sine:
+	          sprintf(buff,"Sinewave   ");
+	          break;
+
+	      case Trapezoidal:
+	          sprintf(buff,"Trapezoidal");
+	          break;
+	  }
 	  lcd_Puts(buff);
 
     /* USER CODE END WHILE */
