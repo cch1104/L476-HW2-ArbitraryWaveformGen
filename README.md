@@ -1,189 +1,167 @@
-# L476-HW2-ArbitraryWaveformGen
-# STM32 DAC Waveform Generator
+# STM32 DAC Waveform Generator with DMA
 
 ## Overview
-This project implements a simple Arbitrary Waveform Generator (AWG) using an STM32 microcontroller, DAC output, timer interrupts, and an LCD display.
 
-The system can generate four different waveforms:
+This project implements an Arbitrary Waveform Generator (AWG) using an STM32 microcontroller.  
+The system generates multiple analog waveforms through the built-in DAC and outputs them continuously using DMA + Timer Trigger for efficient hardware-based waveform synthesis.
 
-- Sawtooth Wave
-- Square Wave
-- Sine Wave
-- Trapezoidal Wave
-
-A push button connected to `PC13` switches between waveform types in real time.
-
-The generated waveform is output through:
-
-- DAC Channel 1
-- Timer interrupt driven sampling
-- Lookup table waveform synthesis
+Waveforms can be switched dynamically using an external push button, while the current waveform type is displayed on an LCD.
 
 ---
 
 # Features
 
+- DAC analog waveform output
+- DMA-based continuous waveform transfer
+- Timer-triggered DAC updates
 - Multiple waveform generation
-- Real-time waveform switching using external interrupt
-- DAC analog output
-- LCD waveform status display
-- Timer interrupt driven sampling
-- Lookup-table based waveform generation
+- External interrupt button control
+- LCD waveform display
+- Lookup Table (LUT) waveform synthesis
+
+---
+
+# Implemented Waveforms
+
+The generator currently supports:
+
+| Waveform | Description |
+|---|---|
+| Sawtooth | Linear rising ramp |
+| Square | 50% duty cycle square wave |
+| Sine | Smooth sinusoidal waveform |
+| Trapezoidal | Ramp + flat-top waveform |
 
 ---
 
 # Hardware Requirements
 
-## Microcontroller
-STM32 board with:
-- DAC peripheral
-- TIM2
-- GPIO interrupt support
-
-Example:
-- STM32L4 series
-- STM32F3 series
-- STM32F4 series
+- STM32 development board
+- LCD module (parallel interface)
+- Push button (PC13)
+- Oscilloscope (recommended)
+- Jumper wires
 
 ---
 
-# Peripheral Usage
+# STM32 Peripheral Usage
 
 | Peripheral | Purpose |
 |---|---|
-| DAC1 CH1 | Analog waveform output |
-| TIM2 | Sampling interrupt trigger |
-| GPIO PC13 | Waveform switch button |
-| GPIOA | LCD interface |
-| LCD | Waveform name display |
+| DAC1 | Analog waveform output |
+| TIM2 | DAC trigger timing |
+| DMA1 | Automatic waveform transfer |
+| GPIO EXTI | Push button interrupt |
+| GPIO | LCD control |
 
 ---
 
-# Waveform Types
+# Project Architecture
 
-## 1. Sawtooth Wave
-Generated using a linear increment lookup table.
+## DMA-Based Waveform Generation
 
----
+The waveform data is stored inside lookup tables:
 
-## 2. Square Wave
-First half of table:
-- DAC = 4095
-
-Second half:
-- DAC = 0
-
----
-
-## 3. Sine Wave
-
-Formula:
-
-```math
-y = (\sin(\frac{2\pi i}{N}) + 1) \times 2027
-
-Where:
-
-N = TABLE_SIZE
-
-## 4. Trapezoidal Wave
-
-
-Generated using:
-
-Rising edge
-High plateau
-Falling edge
-Low plateau
-
-Software Architecture
-Lookup Tables
+```c
 uint16_t sawTable[TABLE_SIZE];
 uint16_t squareTable[TABLE_SIZE];
 uint16_t sineTable[TABLE_SIZE];
 uint16_t trapezoidTable[TABLE_SIZE];
 
-Each waveform is precomputed and stored in memory.
+DMA continuously transfers waveform samples from memory to DAC:
 
-Current Waveform Pointer
-uint16_t *currentTable = sawTable;
-
-The pointer dynamically selects the active waveform table.
-
-Waveform Enumeration
-typedef enum {
-    Sawtooth,
-    Square,
-    Sine,
-    Trapezoidal
-} Waveform_t;
-
-Used for waveform state management.
-
-Timer Interrupt Operation
-
-Waveform samples are updated inside:
-
-HAL_TIM_PeriodElapsedCallback()
-
-Core operation:
-
-HAL_DAC_SetValue(
+HAL_DAC_Start_DMA(
     &hdac1,
     DAC_CHANNEL_1,
-    DAC_ALIGN_12B_R,
-    currentTable[indexWave]
+    (uint32_t*)currentTable,
+    TABLE_SIZE,
+    DAC_ALIGN_12B_R
 );
 
-The timer determines waveform frequency.
+TIM2 generates periodic trigger events:
+
+sConfig.DAC_Trigger = DAC_TRIGGER_T2_TRGO;
+
+Current DMA Method
+
+Now the architecture is:
+
+    TIM2 Trigger → DMA → DAC
+
+Advantages:
+
+Lower CPU load
+Higher waveform frequency
+More stable waveform output
+Better timing precision
+Hardware-level signal generation
+Scalable to larger waveform tables
 
 Waveform Switching
 
-The push button interrupt is handled by:
+Waveforms are switched using the external push button on PC13.
 
-HAL_GPIO_EXTI_Callback()
+The interrupt callback changes the waveform table pointer:
 
-Button press sequence:
+    currentTable = sineTable;
 
-Sawtooth
-   ↓
-Square
-   ↓
-Sine
-   ↓
-Trapezoidal
-   ↓
-Repeat
+DMA is restarted automatically:
+
+    HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
+
+    HAL_DAC_Start_DMA(
+        &hdac1,
+        DAC_CHANNEL_1,
+        (uint32_t*)currentTable,
+        TABLE_SIZE,
+        DAC_ALIGN_12B_R
+    );
+
 LCD Display
 
-LCD continuously displays the current waveform name.
+The LCD displays the currently selected waveform:
 
-Example:
+    Waveform style:
+    Sawtooth
 
-Waveform style:
-Sinewave
-Timer Configuration
-TIM2 Settings
-Prescaler = 3999
-Period     = 19
+Supported display labels:
 
-Interrupt frequency:
+    Sawtooth
+    Squarewave
+    Sinewave
+    Trapezoidal
 
-Timer Frequency =
-SystemClock / ((Prescaler + 1) × (Period + 1))
+Main Program Flow
 
+    Initialize HAL
+        ↓
+    Configure GPIO / DAC / DMA / TIM2
+        ↓
+    Generate waveform lookup tables
+        ↓
+    Start TIM2
+        ↓
+    Start DAC DMA transfer
+        ↓
+    Display waveform on LCD
+        ↓
+    Wait for button interrupt
+        ↓
+    Switch waveform table
+        ↓
+    Restart DMA
 
+Example Signal Flow
 
+    Waveform Table
+      ↓
+     DMA
+      ↓
+     DAC1
+      ↓
+    Analog Output
 
-	​
+Timer synchronization:
 
-
-
-
-
-
-;
-
-
-
+    TIM2 → TRGO → DAC Trigger
 
