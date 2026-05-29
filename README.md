@@ -165,3 +165,6 @@ Timer synchronization:
 
     TIM2 → TRGO → DAC Trigger
 
+## Video Result
+
+https://youtu.be/-jWcd2QrvF0?si=p4T3UnnXI17r-rIE
